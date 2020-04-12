@@ -54,7 +54,12 @@ app.use(function(err, req, res, next) {
 
 //Устанавливаем соединение с mongoose
 var mongoose = require('mongoose');
-var mongoDB = 'mongodb+srv://dkmdb:nv04414243@cluster0-kfxz5.mongodb.net/local_library?retryWrites=true&w=majority';//замените url!!!
+// var mongoDB = 'mongodb+srv://dkmdb:nv04414243@cluster0-kfxz5.mongodb.net/local_library?retryWrites=true&w=majority';//замените url!!!
+
+// Установить соединение с mongoose 
+var dev_db_url = 'mongodb+srv://dkmdb:nv04414243@cluster0-kfxz5.mongodb.net/local_library?retryWrites=true&w=majority';
+var mongoDB = process.env.MONGODB_URI || dev_db_url;
+
 mongoose.connect(mongoDB);
 mongoose.Promise = global.Promise;
 var db = mongoose.connection;

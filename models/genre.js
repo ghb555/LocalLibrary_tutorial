@@ -8,7 +8,7 @@ var GenreSchema = new Schema(
   }
 );
 
-// Virtual for this genre instance URL.
+// Virtual for this genre's URL.
 GenreSchema
 .virtual('url')
 .get(function () {

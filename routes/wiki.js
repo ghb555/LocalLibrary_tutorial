@@ -13,4 +13,8 @@ router.get('/about', function (req, res) {
   res.send('About this wiki');
 })
 
+router.get('/about2', function (req, res) {
+  res.render('Wiki_example', {title: 'Example Pug page'});
+})
+
 module.exports = router;

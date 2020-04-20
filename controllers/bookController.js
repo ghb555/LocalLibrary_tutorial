@@ -8,61 +8,28 @@ const { sanitizeBody } = require("express-validator/filter");
 
 var async = require("async");
 
-console.log("Book.count(): " + Book.count());
+// Book.count({}, function (err, count) {
+//   console.log("err: " + err);
+//   console.log("Total books: " + count);
+// });
 
-Book.count({}, function (err, count) {
-  console.log("err: " + err);
-  console.log("Total books: " + count);
-});
+// .countDocuments() работает!
+// Book.countDocuments({}, function (err, count) {
+//   console.log("err: " + err);
+//   console.log("Total books: " + count);
+// });
 
-Book.count({ isbn: "9781473211896" }, function (err, count) {
-  console.log("err: " + err);
-  console.log("Total books: " + count);
-  console.log(count[0]);
-});
-
-Book.countDocuments({}, function (err, count) {
-  console.log("err: " + err);
-  console.log("Total books: " + count);
-});
-
-// console.log('Book.countDocuments: ' + Book.countDocuments({}, callback));
-// console.log('Book.count: ' + Book.count({}, callback));
-
-// SomeModel.countDocuments({ a_model_field: 'match_value' }, function (err, count) {
-// ... do something if there is an err
-// ... do something with the count if there was no error
-//  });
-
-// Выведем все документы, в которых name=Tom:
-// db.users.find({name: "Tom"})
-console.log(Book.find({ isbn: "9781473211896" }).count());
-console.log(Book.find().count());
-
-Book.find({ isbn: "9781473211896" }, function (err, count) {
-  console.log("err: " + err);
-  console.log("Total books: " + count);
-  console.log(count[0]);
-});
-
-// fn = function() { return this.name=="Tom"; }
-// db.users.find(fn)
-
-// console.log(Book.find(function() { return this.isbn=="9781473211896" }).count);
-
-// count() is equivalent to the db.collection.find(query).count() construct.
-
-// console.log('Book.find(isbn: ' + Book.find(this.isbn=="9781473211896" ).count());
-console.log("Book.find: " + Book.find().count());
-
-// db.collection.count()
+// Book.find({}, function (err, allBooks) {
+//   console.log("err: " + err);
+//   // console.log("Total books: " + allBooks);
+//   console.log(allBooks[0]);
+// });
 
 exports.index = function (req, res) {
   async.parallel(
     {
       book_count: function (callback) {
         Book.count({}, callback); // Pass an empty object as match condition to find all documents of this collection
-        // count не работает, работает только просто count
       },
       book_instance_count: function (callback) {
         BookInstance.count({}, callback);
@@ -87,8 +54,6 @@ exports.index = function (req, res) {
   );
 };
 
-// var Book = require('../models/book');
-
 // exports.index = function(req, res) {
 //     res.send('NOT IMPLEMENTED: Site Home Page');
 // };
@@ -100,7 +65,9 @@ exports.index = function (req, res) {
 
 // Display list of all Books.
 exports.book_list = function (req, res, next) {
+  // Поиск всех книг с возратом полей только title и author
   Book.find({}, "title author")
+    // Заменит сохраненный идентификатор автора книги полными сведениями об авторе
     .populate("author")
     .exec(function (err, list_books) {
       if (err) {
@@ -202,7 +169,14 @@ exports.book_create_post = [
   body("isbn", "ISBN must not be empty").trim().isLength({ min: 1 }),
 
   // Sanitize fields (using wildcard).
-  sanitizeBody("*").escape(),
+  // sanitizeBody("*").escape(),
+  sanitizeBody("title").escape(),
+  sanitizeBody("author").escape(),
+  sanitizeBody("summary").escape(),
+  sanitizeBody("isbn").escape(),
+  // Функция sanitizeBody("genre").escape() оставляет только первый genre._id, все остальные удаляет.
+  // Например, если req.body.genre: 5e93479216308a1d4cd08df7,5e989cbde45cbd61e030201e,5e989edde45cbd61e030201f, то
+  // после sanitizeBody("genre").escape() будет req.body.genre: 5e93479216308a1d4cd08df7
 
   // Process request after validation and sanitization.
   (req, res, next) => {
@@ -238,6 +212,8 @@ exports.book_create_post = [
 
           // Mark our selected genres as checked.
           for (let i = 0; i < results.genres.length; i++) {
+            // Устанавливаем флажки для всех отмеченных флажков в форме
+            // Результат book.genre.indexOf() от ID для отмеченного флажка будет равен 0, для всех других ID будет -1
             if (book.genre.indexOf(results.genres[i]._id) > -1) {
               results.genres[i].checked = "true";
             }
@@ -266,13 +242,84 @@ exports.book_create_post = [
 ];
 
 // Display book delete form on GET.
+// exports.book_delete_get = function (req, res) {
+//   res.send("NOT IMPLEMENTED: Book delete GET");
+// };
+
 exports.book_delete_get = function (req, res) {
-  res.send("NOT IMPLEMENTED: Book delete GET");
+  async.parallel(
+    {
+      book: function (callback) {
+        Book.findById(req.params.id)
+          .populate("author")
+          .populate("genre")
+          .exec(callback);
+      },
+      book_bookinstances: function (callback) {
+        BookInstance.find({ book: req.params.id }).exec(callback);
+      },
+    },
+    function (err, results) {
+      if (err) {
+        return next(err);
+      }
+      if (results.book == null) {
+        // No results.
+        res.redirect("/catalog/books");
+      }
+      // Удачно, значит рендерим.
+      res.render("book_delete", {
+        title: "Delete Book",
+        book: results.book,
+        book_bookinstances: results.book_bookinstances,
+      });
+    }
+  );
 };
 
 // Handle book delete on POST.
+// exports.book_delete_post = function (req, res) {
+//   res.send("NOT IMPLEMENTED: Book delete POST");
+// };
+
 exports.book_delete_post = function (req, res) {
-  res.send("NOT IMPLEMENTED: Book delete POST");
+  // console.log("req.params.id: " + req.params.id);
+  async.parallel(
+    {
+      book: function (callback) {
+        Book.findById(req.params.id).exec(callback);
+      },
+      book_bookinstances: function (callback) {
+        BookInstance.find({ book: req.params.id }).exec(callback);
+      },
+    },
+    function (err, results) {
+      // console.log("results.book POST: " + results.book);
+      // console.log("book_bookinstances POST: " + results.book_bookinstances);
+      if (err) {
+        return next(err);
+      }
+      if (results.book_bookinstances.length > 0) {
+        // Автор книги. Визуализация выполняется так же, как и для GET route.
+        res.render("book_delete", {
+          title: "Delete Book",
+          book: results.book,
+          book_bookinstances: results.book_bookinstances,
+          // author_books: results.authors_books,
+        });
+        return;
+      } else {
+        Book.findByIdAndRemove(req.body.bookid, function deleteBook(err) {
+          if (err) {
+            return next(err);
+          }
+          // Успех-перейти к списку авторов
+          res.redirect("/catalog/books");
+        })
+        // res.send("Book is deleted");
+      }
+    }
+  );
 };
 
 // Display book update form on GET.
@@ -309,24 +356,14 @@ exports.book_update_get = function (req, res, next) {
       }
       // Success.
       // Mark our selected genres as checked.
-      for (
-        var all_g_iter = 0;
-        all_g_iter < results.genres.length;
-        all_g_iter++
-      ) {
-        for (
-          var book_g_iter = 0;
-          book_g_iter < results.book.genre.length;
-          book_g_iter++
-        ) {
-          if (
-            results.genres[all_g_iter]._id.toString() ==
-            results.book.genre[book_g_iter]._id.toString()
-          ) {
+      for (var all_g_iter = 0; all_g_iter < results.genres.length; all_g_iter++) {
+        for (var book_g_iter = 0; book_g_iter < results.book.genre.length; book_g_iter++) {
+          if (results.genres[all_g_iter]._id.toString() == results.book.genre[book_g_iter]._id.toString()) {
             results.genres[all_g_iter].checked = "true";
           }
         }
       }
+
       res.render("book_form", {
         title: "Update Book",
         authors: results.authors,

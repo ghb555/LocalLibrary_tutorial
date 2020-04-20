@@ -1,3 +1,5 @@
+
+// Основной файл приложения Express. Определяем приложение Ээкспресс
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -31,9 +33,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+
+// Добавляем Router (Wiki route module) к пути обработки промежуточного слоя /wiki
 app.use('/wiki', wikiRouter);
 // Add catalog routes to middleware chain.
-// Добавьте маршрут каталога в стек промежуточного слоя
+// Добавьте маршруты каталога в стек промежуточного слоя
 app.use('/catalog', catalogRouter);
 
 // catch 404 and forward to error handler

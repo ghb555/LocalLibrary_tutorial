@@ -10,6 +10,7 @@ var book_instance_controller = require('../controllers/bookinstanceController');
 /// BOOK ROUTES МАРШРУТЫ КНИГ///
 
 // GET catalog home page. 
+// router.get('/', book_controller.index);
 router.get('/', book_controller.index);
 
 // GET request for creating a Book. NOTE This must come before routes that display Book (uses id).
